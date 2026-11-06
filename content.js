@@ -19,7 +19,7 @@
       fab_title: '⎇ GitGraph Live — граф коммитов и брошенные ветки',
       initial: 'Нажми ⟳, чтобы загрузить данные.',
       tab_graph: 'Граф', tab_branches: 'Ветки 🪦',
-      tt_refresh: 'Обновить данные', tt_token: 'Токен GitHub (5000 запросов/час вместо 60)', tt_close: 'Закрыть',
+      tt_refresh: 'Переобновить данные (Shift — без кэша)', tt_token: 'Токен GitHub (5000 запросов/час вместо 60)', tt_close: 'Закрыть',
       tt_play: 'Проиграть историю (таймлапс)', tt_speed: 'Скорость анимации',
       token_prompt: 'Токен GitHub (необязателен). Оставь пустым, чтобы убрать:',
       loading: 'Загружаю…',
@@ -43,7 +43,7 @@
       fab_title: '⎇ GitGraph Live — commit graph & stale branches',
       initial: 'Press ⟳ to load data.',
       tab_graph: 'Graph', tab_branches: 'Branches 🪦',
-      tt_refresh: 'Refresh data', tt_token: 'GitHub token (5,000 req/hour instead of 60)', tt_close: 'Close',
+      tt_refresh: 'Refresh data (Shift — bypass cache)', tt_token: 'GitHub token (5,000 req/hour instead of 60)', tt_close: 'Close',
       tt_play: 'Play the history (timelapse)', tt_speed: 'Animation speed',
       token_prompt: 'GitHub token (optional). Leave empty to remove:',
       loading: 'Loading…',
@@ -205,7 +205,7 @@
   }
 
   /* ---------- Загрузка данных ---------- */
-  async function loadAll() {
+  async function loadAll(force) {
     const seq = ++loadSeqId;
     const r = location.pathname.match(/^\/([^/]+)\/([^/]+)/);
     state.repo = r ? { owner: r[1], name: r[2] } : null;
@@ -229,11 +229,11 @@
         return res.json();
       };
 
-      // 1) кэш — если всё свежее, API не трогаем
+      // 1) кэш — если всё свежее, API не трогаем (Shift+⟳ читает мимо него)
       const ck = `${state.repo.owner}/${state.repo.name}`;
-      const cachedCommits = cacheGet('c:' + ck);
+      const cachedCommits = force ? null : cacheGet('c:' + ck);
       if (cachedCommits) { state.commits = cachedCommits; state.demo = false; }
-      const cachedBranches = cacheGet('b2:' + ck);
+      const cachedBranches = force ? null : cacheGet('b2:' + ck);
       if (cachedBranches) { state.branches = cachedBranches.branches; state.branchesTotal = cachedBranches.total; }
       if (cachedCommits && cachedBranches) { renderTab(); return; }
 
@@ -540,7 +540,7 @@
       if (!btn) return;
       const act = btn.dataset.act;
       if (act === 'close') panel.classList.add('ggl-hidden');
-      if (act === 'refresh') loadAll();
+      if (act === 'refresh') loadAll(evt && evt.shiftKey);
       if (act === 'play') togglePlay();
       if (act === 'speed') cycleSpeed();      if (act === 'token') {
         const cur = localStorage.getItem(TOKEN_KEY) || '';
