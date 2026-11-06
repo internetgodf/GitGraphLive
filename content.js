@@ -24,13 +24,16 @@
       token_prompt: 'Токен GitHub (необязателен). Оставь пустым, чтобы убрать:',
       loading: 'Загружаю…',
       err_commits: 'коммиты', err_branches: 'ветки', err_branch_date: 'дата ветки',
+      err_repo: 'описание репозитория', err_compare: 'сравнение с основной веткой',
       limit_hint: 'лимит API — добавь токен 🔑', timeout_note: ' (таймаут 12 c)',
       unexpected: 'неожиданная ошибка:', demo_meantime: 'пока показываю демо.',
       demo_note: 'Демо-режим: так будет выглядеть настоящий граф.',
       commits_note: (n) => `Последние ${n} коммитов. Вертикаль слева — ствол (основная ветка); изгиб на точке «Merge …» — чья-то ветка влилась.`,
       branches_label: 'Веток', of: 'из', stale_stat: 'брошенных', worn_stat: 'на грани', days_short: 'дн.',
       truncated_note: (n) => `Показаны даты для первых ${n} веток (лимит API без токена). Вставь токен 🔑 — покажем до 100.`,
-      branches_footer: '🪦 давний застой, вероятно можно удалить · ⏳ свежесть на грани · ✅ живые. Клик — открывает ветку на GitHub.',
+      branches_footer: '🪦 давний застой, вероятно можно удалить · ⏳ свежесть на грани · ✅ живые. Значки: ↓ отстаёт от main, ↑ впереди, ❔ без сравнения. Клик — открывает ветку на GitHub.',
+      tt_behind: 'коммитов позади основной ветки', tt_ahead: 'коммитов впереди основной ветки',
+      stale_top: (name, n) => `Максимальный разрыв: ${name} — позади на ${n}`,
       date_unavailable: 'дата недоступна', today: 'сегодня', yesterday: 'вчера', days_ago: (d) => `${d} дн. назад`,
       demo_list_prefix: 'Пока — демо-список:', not_received: 'Данные ещё не получены — нажми ⟳.',
       render_error: 'Ошибка отрисовки', unexpected_short: 'сбой',
@@ -45,13 +48,16 @@
       token_prompt: 'GitHub token (optional). Leave empty to remove:',
       loading: 'Loading…',
       err_commits: 'commits', err_branches: 'branches', err_branch_date: 'branch date',
+      err_repo: 'repository info', err_compare: 'comparison with the default branch',
       limit_hint: 'API limit — add a token 🔑', timeout_note: ' (12 s timeout)',
       unexpected: 'unexpected error:', demo_meantime: 'showing demo meanwhile.',
       demo_note: 'Demo mode: this is what the real graph will look like.',
       commits_note: (n) => `Last ${n} commits. The left vertical is the trunk (default branch); a curve meeting a “Merge …” dot = that branch merged in.`,
       branches_label: 'Branches', of: 'of', stale_stat: 'stale', worn_stat: 'at risk', days_short: 'days',
       truncated_note: (n) => `Dates shown for the first ${n} branches (API limit without token). Add a token 🔑 to cover up to 100.`,
-      branches_footer: '🪦 stale, safe to delete · ⏳ borderline · ✅ alive. Click opens the branch on GitHub.',
+      branches_footer: '🪦 stale, safe to delete · ⏳ borderline · ✅ alive. Badges: ↓ behind main, ↑ ahead, ❔ not compared. Click opens the branch on GitHub.',
+      tt_behind: 'commits behind the default branch', tt_ahead: 'commits ahead of the default branch',
+      stale_top: (name, n) => `Biggest gap: ${name} — ${n} behind`,
       date_unavailable: 'date unavailable', today: 'today', yesterday: 'yesterday', days_ago: (d) => `${d} d ago`,
       demo_list_prefix: 'Showing demo list meanwhile:', not_received: 'No data yet — press ⟳.',
       render_error: 'Render error', unexpected_short: 'glitch',
@@ -119,10 +125,10 @@
     const day = 86400000;
     const d = (n) => new Date(Date.now() - n * day).toISOString();
     return [
-      { name: 'feature/new-core-engine', author: 'Bob', date: d(96) },
-      { name: 'feature/chats-2.0', author: 'Kate', date: d(41) },
-      { name: 'bugfix/memory-leak', author: 'Bob', date: d(17) },
-      { name: 'feature/dark-theme', author: 'Ann', date: d(2) },
+      { name: 'feature/new-core-engine', author: 'Bob', date: d(96), behind: 480, ahead: 0 },
+      { name: 'feature/chats-2.0', author: 'Kate', date: d(41), behind: 120, ahead: 0 },
+      { name: 'bugfix/memory-leak', author: 'Bob', date: d(17), behind: 23, ahead: 3 },
+      { name: 'feature/dark-theme', author: 'Ann', date: d(2), behind: 2, ahead: 8 },
     ];
   }
 
@@ -227,7 +233,7 @@
       const ck = `${state.repo.owner}/${state.repo.name}`;
       const cachedCommits = cacheGet('c:' + ck);
       if (cachedCommits) { state.commits = cachedCommits; state.demo = false; }
-      const cachedBranches = cacheGet('b:' + ck);
+      const cachedBranches = cacheGet('b2:' + ck);
       if (cachedBranches) { state.branches = cachedBranches.branches; state.branchesTotal = cachedBranches.total; }
       if (cachedCommits && cachedBranches) { renderTab(); return; }
 
@@ -264,30 +270,45 @@
       if (!cachedBranches) {
         const branchesRes = resOf('branches');
         if (branchesRes.status === 'fulfilled') {
-          // /branches отдаёт только sha кончика ветки → даты добираем по хешу.
-          // Без токена GitHub даёт 60 запросов/час, поэтому даты только для первых 25 веток.
+          // /branches отдаёт только sha кончика ветки. Разрыв и дату меряем через /compare:
+          // один запрос на ветку даёт behind_by + ahead_by + head_commit (дата+автор) сразу.
           const raw = branchesRes.value;
           const limit = token ? 100 : 25;
           const sample = raw.slice(0, limit);
-          const details = await Promise.allSettled(sample.map((b) =>
-            timedFetch(`${base}/commits/${b.commit.sha}`, { headers }).then((res) => fruited('branch_date', res))));
+          let baseBranch = null, repoInfo = null;
+          try {
+            repoInfo = await timedFetch(base, { headers }).then((res) => fruited('repo', res));
+            baseBranch = repoInfo.default_branch;
+          } catch { /* сравнение отметим недоступным ниже */ }
           if (seq !== loadSeqId) return;
-          state.branches = sample.map((b, i) => {
-            let date = null, author = '—';
-            const inline = b.commit.commit && (b.commit.commit.committer || b.commit.commit.author);
-            const det = details[i];
-            if (det.status === 'fulfilled') {
-              const c = det.value;
-              author = (c.commit.author && c.commit.author.name) || '—';
-              date = (c.commit.committer && c.commit.committer.date) || (c.commit.author && c.commit.author.date);
-            } else if (inline) {
-              author = (b.commit.commit.author && b.commit.commit.author.name) || '—';
-              date = (b.commit.commit.committer && b.commit.commit.committer.date) || (b.commit.commit.author && b.commit.commit.author.date);
+          const cmpRequests = sample.map((br) => (baseBranch && br.name !== baseBranch)
+            ? timedFetch(`${base}/compare/${encodeURIComponent(baseBranch)}...${encodeURIComponent(br.name)}`, { headers })
+            : Promise.resolve(null));
+          const cmpRes = await Promise.allSettled(cmpRequests.map((req) => req.then((res) => (res === null ? null : fruited('compare', res)))));
+          if (seq !== loadSeqId) return;
+          state.branches = sample.map((br, i) => {
+            let date = null, author = '—', behind = null, ahead = null;
+            const cmp = cmpRes[i];
+            if (br.name === baseBranch && repoInfo) { // основная ветка: разрыв нулевой, дата = последний пуш
+              behind = 0; ahead = 0; date = repoInfo.pushed_at || null;
+            } else if (cmp.status === 'fulfilled' && cmp.value) {
+              behind = cmp.value.behind_by; ahead = cmp.value.ahead_by;
+              const head = cmp.value.head_commit;
+              if (head) {
+                author = (head.commit.author && head.commit.author.name) || '—';
+                date = (head.commit.committer && head.commit.committer.date) || (head.commit.author && head.commit.author.date);
+              }
+            } else {
+              const inline = br.commit.commit && (br.commit.commit.committer || br.commit.commit.author); // GitHub внезапно вернул дату сразу
+              if (inline) {
+                author = (br.commit.commit.author && br.commit.commit.author.name) || '—';
+                date = (br.commit.commit.committer && br.commit.commit.committer.date) || (br.commit.commit.author && br.commit.commit.author.date);
+              }
             }
-            return { name: b.name, sha: String(b.commit.sha).slice(0, 7), author, date };
+            return { name: br.name, sha: String(br.commit.sha).slice(0, 7), author, date, behind, ahead };
           });
           state.branchesTotal = raw.length;
-          cacheSet('b:' + ck, { branches: state.branches, total: state.branchesTotal });
+          cacheSet('b2:' + ck, { branches: state.branches, total: state.branchesTotal });
         } else {
           state.branchesError = whyTxt(branchesRes.reason);
         }
@@ -433,16 +454,28 @@
     const worn = list.filter((b) => b.days !== null && b.days >= WORN_DAYS && b.days < STALE_DAYS).length;
     body.insertAdjacentHTML('beforeend',
       `<div class="ggl-note">${esc(t('branches_label'))}: ${list.length}${state.branchesTotal > list.length ? ` ${esc(t('of'))} ${state.branchesTotal}` : ''} · 🪦 ${esc(t('stale_stat'))} (&gt;${STALE_DAYS} ${esc(t('days_short'))}): ${stale} · ⏳ ${esc(t('worn_stat'))} (&gt;${WORN_DAYS}): ${worn}</div>`);
-    if (state.branchesTotal > list.length) {
+    // «Максимальный разрыв»: ветка, которая дальше всех от main (сводка по behind)
+    const worst = list.reduce((w, b) => ((b.behind || 0) > (w ? (w.behind || 0) : -1) ? b : w), null);
+    if (worst && (worst.behind || 0) > 0) {
+      body.insertAdjacentHTML('beforeend', `<div class="ggl-note ggl-gap">🪓 ${esc(t('stale_top')(worst.name, worst.behind > 999 ? '999+' : worst.behind))}</div>`);
+    }    if (state.branchesTotal > list.length) {
       body.insertAdjacentHTML('beforeend', `<div class="ggl-note">${esc(t('truncated_note')(list.length))}</div>`);
     }
     const repoUrl = state.repo ? `https://github.com/${state.repo.owner}/${state.repo.name}/tree/` : '#';
+    // Бейджи разрыва: ↓N — отстаёт от main (оранжевый), ↑N — впереди (синий); нули приглушены
+    const badge = (val, cls, titleKey, glyph) => {
+      if (val === null || val === undefined) return '';
+      const zero = val === 0 ? ' ggl-zero' : '';
+      return `<span class="ggl-badge ${cls}${zero}" title="${esc(t(titleKey))}">${glyph}${val > 999 ? '999+' : val}</span>`;
+    };
     list.forEach((b) => {
       const [icon, cls] = branchIcon(b.days);
       body.insertAdjacentHTML('beforeend',
         `<a class="ggl-row" href="${repoUrl}${encodeURIComponent(b.name)}" target="_blank" rel="noopener">` +
         `<span class="ggl-st ${cls}">${icon}</span>` +
         `<span class="ggl-bname">${esc(b.name)}</span>` +
+        badge(b.behind, 'ggl-bh', 'tt_behind', '↓') +
+        badge(b.ahead, 'ggl-ah', 'tt_ahead', '↑') +
         `<span class="ggl-bmeta">${esc(b.author)} · ${esc(fmtAge(b.days))}</span></a>`);
     });
     body.insertAdjacentHTML('beforeend', `<div class="ggl-note">${esc(t('branches_footer'))}</div>`);

@@ -23,7 +23,8 @@ GitGraph Live adds two things GitHub is missing:
 🪦 BRANCHES TAB
 • Your repo's branch cemetery: every branch ranked by last activity
 • ✅ alive · ⏳ no commits for 14+ days · 🪦 abandoned for 30+ days
-• Summary line: total branches, how many are stale
+• ↑/↓ badges: how far each branch is behind (or ahead of) main
+• Summary line: total branches, how many are stale, biggest gap
 • Click any branch to open it on GitHub
 • Dates for up to 100 branches with your own token (free plan: first 25)
 
@@ -48,9 +49,10 @@ GitGraph Live добавляет на GitHub две вещи, которых т�
 • Анимация «оживления» графа
 
 🪦 ВКЛАДКА «ВЕТКИ»
-• Кладбище вет репозитория: все ветки по дате последней активности
+• Кладбище веток репозитория: все ветки по дате последней активности
 • ✅ живая · ⏳ без коммитов 14+ дней · 🪦 брошена 30+ дней
-• Сводка: сколько веток всего и сколько брошенных
+• Значки ↑/↓: насколько ветка отстала от main (или обогнала её)
+• Сводка: сколько веток всего, сколько брошенных и где самый большой разрыв
 • Клик по ветке — открыть её на GitHub
 • Даты для 100 веток с личным токеном (бесплатный план — первые 25)
 
