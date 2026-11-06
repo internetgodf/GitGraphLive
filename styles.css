@@ -113,3 +113,21 @@
 .ggl-meta  { fill: #8b949e; font-size: 11px; }
 .ggl-label { animation: ggl-fade 0.6s ease both; }
 @keyframes ggl-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* Таймлапс «Проиграть историю» */
+.ggl-dot, .ggl-edge, .ggl-label { transition: opacity 0.25s ease; }
+.ggl-playmode .ggl-dot,
+.ggl-playmode .ggl-edge,
+.ggl-playmode .ggl-label { animation: none; opacity: 0; }
+.ggl-playmode .ggl-on { opacity: 1 !important; }
+.ggl-cursor {
+  fill: none;
+  stroke: #f778ba;
+  stroke-width: 2.5;
+  opacity: 0.9;
+}
+.ggl-cursor.live { animation: ggl-cursor-pulse 0.9s ease-in-out infinite; }
+@keyframes ggl-cursor-pulse {
+  0%, 100% { r: 6.5; opacity: 0.9; }
+  50%      { r: 9.5; opacity: 0.45; }
+}

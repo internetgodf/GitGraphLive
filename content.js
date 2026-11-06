@@ -20,6 +20,7 @@
       initial: 'Нажми ⟳, чтобы загрузить данные.',
       tab_graph: 'Граф', tab_branches: 'Ветки 🪦',
       tt_refresh: 'Обновить данные', tt_token: 'Токен GitHub (5000 запросов/час вместо 60)', tt_close: 'Закрыть',
+      tt_play: 'Проиграть историю (таймлапс)', tt_speed: 'Скорость анимации',
       token_prompt: 'Токен GitHub (необязателен). Оставь пустым, чтобы убрать:',
       loading: 'Загружаю…',
       err_commits: 'коммиты', err_branches: 'ветки', err_branch_date: 'дата ветки',
@@ -40,6 +41,7 @@
       initial: 'Press ⟳ to load data.',
       tab_graph: 'Graph', tab_branches: 'Branches 🪦',
       tt_refresh: 'Refresh data', tt_token: 'GitHub token (5,000 req/hour instead of 60)', tt_close: 'Close',
+      tt_play: 'Play the history (timelapse)', tt_speed: 'Animation speed',
       token_prompt: 'GitHub token (optional). Leave empty to remove:',
       loading: 'Loading…',
       err_commits: 'commits', err_branches: 'branches', err_branch_date: 'branch date',
@@ -176,22 +178,24 @@
     data.forEach((c, r) => {
       const x = cx(laneOf.get(c.sha)), y = cy(r), col = color(laneOf.get(c.sha));
       const msg = c.msg.length > 46 ? c.msg.slice(0, 46) + '…' : c.msg;
-      dots += `<circle class="ggl-dot" style="animation-delay:${r * 55}ms" cx="${x}" cy="${y}" r="5" fill="${col}" stroke="#12161c" stroke-width="2"><title>${esc(c.author)} · ${esc(c.msg)}</title></circle>`;
-      labels += `<text class="ggl-label" style="animation-delay:${r * 55 + 120}ms" x="${graphW + 14}" y="${y + 4}"><tspan class="ggl-msg">${esc(msg)}</tspan><tspan class="ggl-meta" dx="8">${esc(c.author)} · ${esc(c.date.slice(0, 10))}</tspan></text>`;
+      dots += `<circle class="ggl-dot" data-r="${r}" data-cx="${x}" data-cy="${y}" style="animation-delay:${r * 55}ms" cx="${x}" cy="${y}" r="5" fill="${col}" stroke="#12161c" stroke-width="2"><title>${esc(c.author)} · ${esc(c.msg)}</title></circle>`;
+      labels += `<text class="ggl-label" data-r="${r}" style="animation-delay:${r * 55 + 120}ms" x="${graphW + 14}" y="${y + 4}"><tspan class="ggl-msg">${esc(msg)}</tspan><tspan class="ggl-meta" dx="8">${esc(c.author)} · ${esc(c.date.slice(0, 10))}</tspan></text>`;
     });
     edges.forEach((e) => {
       const col = color(e.cl), x1 = cx(e.cl), y1 = cy(e.cr);
+      const attrs = `class="ggl-edge" data-r="${e.cr}"`;
       if (e.parent === null) {
-        lines += `<path d="M${x1} ${y1} L${x1} ${y1 + 10}" stroke="${col}" stroke-width="2" opacity="0.55" fill="none"/>`;
+        lines += `<path ${attrs} d="M${x1} ${y1} L${x1} ${y1 + 10}" stroke="${col}" stroke-width="2" opacity="0.55" fill="none"/>`;
         return;
       }
       const x2 = cx(e.pl), y2 = cy(e.pr);
       const k = Math.min(14, Math.max(6, (y2 - y1) / 3));
       lines += (x1 === x2)
-        ? `<path d="M${x1} ${y1} L${x1} ${y2}" stroke="${col}" stroke-width="2" fill="none"/>`
-        : `<path d="M${x1} ${y1} C ${x1} ${y1 + k}, ${x2} ${y2 - k}, ${x2} ${y2}" stroke="${col}" stroke-width="2" fill="none"/>`;
+        ? `<path ${attrs} d="M${x1} ${y1} L${x1} ${y2}" stroke="${col}" stroke-width="2" fill="none"/>`
+        : `<path ${attrs} d="M${x1} ${y1} C ${x1} ${y1 + k}, ${x2} ${y2 - k}, ${x2} ${y2}" stroke="${col}" stroke-width="2" fill="none"/>`;
     });
-    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">${lines}${dots}${labels}</svg>`;
+    const cursor = `<circle class="ggl-cursor" cx="-99" cy="-99" r="7"/>`;
+    return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">${lines}${dots}${labels}${cursor}</svg>`;
   }
 
   /* ---------- Загрузка данных ---------- */
@@ -299,9 +303,103 @@
     }
   }
 
+  /* ---------- Таймлапс «Проиграть историю» ----------
+   * idle ▶ → playing ⏸ → paused ▶ → done ↺ (снова ▶ = рестарт).
+   * Граф скрывается целиком; коммиты «вырастают» снизу вверх (от старых к новым),
+   * пульсирующий курсор ведёт зрителя по текущей точке. */
+  let playState = 'idle';   // idle | playing | paused | done
+  let playTimer = null;
+  let playIdx = 0;          // текущая строка (идём от старых к новым => от дна вверх)
+  let playSpeed = 1;        // 1x | 2x | 4x
+  const PLAY_BASE_MS = 140;
+
+  const playGlyph = { idle: '▶', playing: '⏸', paused: '▶', done: '↺' };
+
+  function playBtn() { return panel && panel.querySelector('[data-act="play"]'); }
+  function setPlayGlyph() { const b = playBtn(); if (b) b.textContent = playGlyph[playState]; }
+
+  function stopPlayTimer() { if (playTimer) { clearTimeout(playTimer); playTimer = null; } }
+
+  function setPlayMode(on) {
+    const svg = panel.querySelector('.ggl-body svg');
+    if (svg) svg.classList.toggle('ggl-playmode', on);
+  }
+
+  function hideAllRows() {
+    panel.querySelectorAll('.ggl-body [data-r]').forEach((el) => el.classList.remove('ggl-on'));
+    const cur = panel.querySelector('.ggl-cursor');
+    if (cur) cur.style.display = 'none';
+  }
+
+  function playStep() {
+    if (playState !== 'playing') return;
+    const svg = panel.querySelector('.ggl-body svg');
+    if (!svg || !document.contains(svg)) { playState = 'idle'; setPlayGlyph(); return; }
+    if (playIdx < 0) { // конец
+      playState = 'done';
+      stopPlayTimer();
+      setPlayGlyph();
+      return;
+    }
+    svg.querySelectorAll(`[data-r="${playIdx}"]`).forEach((el) => el.classList.add('ggl-on'));
+    const dot = svg.querySelector(`circle.ggl-dot[data-r="${playIdx}"]`);
+    const cur = svg.querySelector('.ggl-cursor');
+    if (cur && dot) {
+      cur.style.display = '';
+      cur.classList.add('live');
+      cur.setAttribute('cx', dot.dataset.cx);
+      cur.setAttribute('cy', dot.dataset.cy);
+    }
+    playIdx--;
+    const nextIdx = playIdx;
+    playTimer = setTimeout(playStep, Math.max(30, Math.round(PLAY_BASE_MS / playSpeed)));
+    if (nextIdx < 0) return; // последний шаг — ждём финала в конце
+  }
+
+  function togglePlay() {
+    if (state.tab !== 'commits') { state.tab = 'commits'; renderTab(); }
+    const svg = panel.querySelector('.ggl-body svg');
+    if (!svg) return;
+    if (playState === 'idle' || playState === 'done') { // старт/рестарт
+      stopPlayTimer();
+      setPlayMode(true);
+      hideAllRows();
+      playIdx = state.commits ? state.commits.length - 1 : 14;
+      playState = 'playing';
+      setPlayGlyph();
+      playTimer = setTimeout(playStep, 220); // мини-пауза, чтобы скрытие применилось
+      return;
+    }
+    if (playState === 'playing') { // пауза
+      playState = 'paused';
+      stopPlayTimer();
+      setPlayGlyph();
+      return;
+    }
+    if (playState === 'paused') { // продолжить
+      playState = 'playing';
+      setPlayGlyph();
+      playTimer = setTimeout(playStep, Math.max(30, Math.round(PLAY_BASE_MS / playSpeed)));
+    }
+  }
+
+  function resetPlay() {
+    stopPlayTimer();
+    playState = 'idle';
+    setPlayMode(false);
+    setPlayGlyph();
+  }
+
+  function cycleSpeed() {
+    playSpeed = playSpeed === 1 ? 2 : playSpeed === 2 ? 4 : 1;
+    const b = panel.querySelector('[data-act="speed"]');
+    if (b) b.textContent = `⚡${playSpeed}x`;
+  }
+
   /* ---------- Рендер вкладок ---------- */
   function renderCommits(body) {
     body.innerHTML = '';
+    resetPlay();
     if (state.commitsError) {
       body.insertAdjacentHTML('beforeend', `<div class="ggl-status">⚠ ${esc(state.commitsError)} — ${esc(t('demo_meantime'))}</div>`);
     }
@@ -381,6 +479,8 @@
         <span class="ggl-spacer"></span>
         <button class="ggl-tab" data-act="tab-commits" title="${esc(t('tab_graph'))}">${esc(t('tab_graph'))}</button>
         <button class="ggl-tab" data-act="tab-branches" title="${esc(t('tab_branches'))}">${esc(t('tab_branches'))}</button>
+        <button class="ggl-btn" data-act="play" title="${esc(t('tt_play'))}">▶</button>
+        <button class="ggl-btn" data-act="speed" title="${esc(t('tt_speed'))}">⚡1x</button>
         <button class="ggl-btn" data-act="refresh" title="${esc(t('tt_refresh'))}">⟳</button>
         <button class="ggl-btn" data-act="token" title="${esc(t('tt_token'))}">🔑</button>
         <button class="ggl-btn" data-act="close" title="${esc(t('tt_close'))}">✕</button>
@@ -394,7 +494,8 @@
       const act = btn.dataset.act;
       if (act === 'close') panel.classList.add('ggl-hidden');
       if (act === 'refresh') loadAll();
-      if (act === 'token') {
+      if (act === 'play') togglePlay();
+      if (act === 'speed') cycleSpeed();      if (act === 'token') {
         const cur = localStorage.getItem(TOKEN_KEY) || '';
         const tk = prompt(t('token_prompt'), cur);
         if (tk !== null) {

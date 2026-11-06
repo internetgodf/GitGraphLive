@@ -59,7 +59,7 @@ Optional: click 🔑 in the panel and paste a [GitHub token](https://github.com/
 
 ## Roadmap
 
-- [ ] ▶ «Play the history» — timelapse animation of the graph growing
+- [x] ▶ «Play the history» — timelapse animation of the graph growing (v0.4)
 - [ ] «N commits behind main» badges for branches (compare API)
 - [ ] Search & filters for the branches list
 - [ ] Auto light theme
