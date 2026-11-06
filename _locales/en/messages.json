@@ -1,0 +1,8 @@
+{
+  "extName": {
+    "message": "GitGraph Live — live commit graph for GitHub"
+  },
+  "extDesc": {
+    "message": "Live commit graph + stale branch radar for any GitHub repo. See branches, merges and abandoned work at a glance."
+  }
+}

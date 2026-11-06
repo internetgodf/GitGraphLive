@@ -1,0 +1,115 @@
+/* GitGraph Live — стили оверлея */
+
+.ggl-fab {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 2147483000;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(205, 217, 229, 0.15);
+  background: #1a1f26;
+  color: #58a6ff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+.ggl-fab:hover { background: #242b34; }
+
+.ggl-panel {
+  position: fixed;
+  right: 18px;
+  bottom: 72px;
+  z-index: 2147483001;
+  width: 700px;
+  height: min(72vh, 640px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  background: #12161c;
+  color: #d0d7de;
+  border: 1px solid rgba(205, 217, 229, 0.14);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+  font: 12px -apple-system, "Segoe UI", sans-serif;
+}
+.ggl-hidden { display: none; }
+
+.ggl-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(205, 217, 229, 0.12);
+  background: #1a1f26;
+  border-radius: 10px 10px 0 0;
+}
+.ggl-title { font-weight: 600; color: #58a6ff; }
+.ggl-repo  { color: #8b949e; }
+.ggl-spacer { flex: 1; }
+
+.ggl-btn {
+  border: 1px solid rgba(205, 217, 229, 0.15);
+  background: transparent;
+  color: #d0d7de;
+  border-radius: 6px;
+  width: 26px;
+  height: 26px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.ggl-btn:hover { background: #242b34; }
+
+/* Вкладки */
+.ggl-tab {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #8b949e;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.ggl-tab:hover { background: #242b34; color: #d0d7de; }
+.ggl-tab.ggl-active { background: #242b34; color: #58a6ff; }
+
+.ggl-body {
+  overflow: auto;
+  padding: 10px 12px 18px;
+  flex: 1;
+}
+.ggl-status { padding: 14px 4px; color: #8b949e; }
+.ggl-note   { padding: 10px 2px 2px; color: #b081f5; }
+
+/* Список веток */
+.ggl-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  color: #d0d7de;
+  text-decoration: none;
+}
+.ggl-row:hover { background: #1a1f26; }
+.ggl-st    { width: 20px; text-align: center; }
+.ggl-bname { color: #58a6ff; font-family: ui-monospace, Consolas, monospace; }
+.ggl-bmeta { color: #8b949e; font-size: 11px; margin-left: auto; white-space: nowrap; }
+.ggl-stale { filter: grayscale(1); opacity: 0.85; }
+
+/* SVG-область */
+.ggl-dot {
+  animation: ggl-in 0.45s ease both;
+}
+@keyframes ggl-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: none; }
+}
+.ggl-dot { transform-box: fill-box; transform-origin: center; }
+
+.ggl-label { font-size: 12px; fill: #d0d7de; }
+.ggl-msg   { font-size: 12px; }
+.ggl-meta  { fill: #8b949e; font-size: 11px; }
+.ggl-label { animation: ggl-fade 0.6s ease both; }
+@keyframes ggl-fade { from { opacity: 0; } to { opacity: 1; } }
