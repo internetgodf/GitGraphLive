@@ -10,7 +10,9 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Platform](https://img.shields.io/badge/browser-Chrome%20%7C%20Brave%20%7C%20Edge-58a6ff)](https://github.com/internetgodf/GitGraphLive)
 
-[⬇️ **Download v0.3.0 (ZIP)**](https://github.com/internetgodf/GitGraphLive/releases/latest)
+[⬇️ **Download v0.4.0 (ZIP)**](https://github.com/internetgodf/GitGraphLive/releases/latest)
+
+<img src="docs/demo.gif" width="480" alt="Demo: the commit graph grows commit by commit (timelapse)">
 
 </div>
 
