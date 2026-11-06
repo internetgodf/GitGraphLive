@@ -1,42 +1,80 @@
-# GitGraph Live (v0.3)
+<div align="center">
 
-Расширение для Chromium-браузеров: живой граф коммитов и надзор за ветками поверх GitHub.
-Готов к публикации: иконки, локализация EN/RU, список для стора, ZIP-пакет.
+<img src="icons/icon128.png" width="96" alt="GitGraph Live">
 
-## Функции
-- **Вкладка «Граф»**: последние 40 коммитов репозитория, цветные линии веток,
-  merge-изгибы, tooltip «автор · сообщение», анимация появления
-- **Вкладка «Ветки 🪦»**: рейтинг брошенности (✅ живая / ⏳ >14 дн / 🪦 >30 дн / ❔ без даты),
-  сводка сверху, клик открывает ветку на GitHub
-- Клик по иконке на тулбаре → открыть панель (или плавающая кнопка ⎇)
-- Опциональный токен 🔑: 5000 запросов/час вместо 60
-- Кэш 10 минут: повторные открытия не тратят лимит
-- Язык интерфейса: EN/RU автоматически по языку браузера
-- Демо-режим при недоступности API
+# GitGraph Live
 
-## Файлы
-- `manifest.json` — манифест (Manifest V3, имя/описание локализованы)
-- `content.js` — вся логика панели (граф, ветки, кэш, i18n)
-- `background.js` — открытие панели по клику на иконку тулбара
-- `styles.css` — оформление
-- `icons/` — иконки 16/32/48/128 (+ генератор `make_icons.ps1`)
-- `_locales/en|ru/messages.json` — имя и описание для стора
-- `STORE_LISTING.md` — готовые тексты листинга
-- `PUBLISH.md` — пошаговая публикация в Chrome Web Store
+**Live commit graph + stale branch radar for GitHub** · Русский ниже
 
-## Разработка
-Установка локально: `brave://extensions` → Режим разработчика → Загрузить распакованное →
-выбрать папку. После правок: ⟳ на карточке + F5 на вкладке GitHub.
+[![Version](https://img.shields.io/github/v/release/internetgodf/GitGraphLive?label=version)](https://github.com/internetgodf/GitGraphLive/releases/latest)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Platform](https://img.shields.io/badge/browser-Chrome%20%7C%20Brave%20%7C%20Edge-58a6ff)](https://github.com/internetgodf/GitGraphLive)
 
-Пересобрать ZIP для стора — команда в конце `PUBLISH.md`.
+[⬇️ **Download v0.3.0 (ZIP)**](https://github.com/internetgodf/GitGraphLive/releases/latest)
 
-## Пороги брошенности
-В начале `content.js`: `STALE_DAYS = 30`, `WORN_DAYS = 14`.
+</div>
 
-## Дорожная карта
-- [ ] ▶ «Проиграть историю» (анимация роста графа)
-- [ ] «Отстала от main на N коммитов» (compare API)
-- [ ] Поиск/фильтры по веткам
-- [ ] Светлая тема (авто по теме GitHub)
-- [x] Иконки + EN/RU-интерфейс (v0.3)
-- [ ] Публикация в Chrome Web Store
+---
+
+## What it adds to GitHub
+
+**🗂 Graph tab** — a colorful commit graph for the last 40 commits of any repository:
+each branch gets its own colored line, merges curve into the trunk, the trunk is always on the left
+(like `git log --graph`). Hover any dot for *«author · message»*.
+
+**🪦 Branches tab** — every branch ranked by last activity:
+✅ alive · ⏳ no commits for 14+ days · 🪦 abandoned for 30+ days. Click a branch to open it on GitHub.
+
+## Install (ZIP)
+
+1. Download the ZIP from [Releases](https://github.com/internetgodf/GitGraphLive/releases/latest)
+2. Unzip it into a folder
+3. Open `chrome://extensions` (Brave: `brave://extensions`, Edge: `edge://extensions`)
+4. Enable **Developer mode** (top right)
+5. **Load unpacked** → select the unzipped folder
+6. Open any GitHub repository → click the floating **⎇** button (bottom right)
+
+Optional: click 🔑 in the panel and paste a [GitHub token](https://github.com/settings/tokens)
+(no scopes needed) to raise the API limit from 60 to 5,000 calls/hour.
+
+## Why it is privacy-friendly
+
+- Reads **public GitHub API** only — no analytics, no tracking, no servers of its own
+- The optional token stays in your browser's local storage and is sent only to `api.github.com`
+- 10-minute cache: repeated page opens cost **zero** API calls
+
+---
+
+## Русская версия
+
+**GitGraph Live** добавляет на GitHub две вещи, которых там не хватает.
+
+- **🗂 Вкладка «Граф»** — живой граф последних 40 коммитов: у каждой ветки своя цветная линия,
+  merge красиво вплетается в ствол, ствол всегда слева. Наведение на точку — «автор · сообщение»
+- **🪦 Вкладка «Ветки»** — рейтинг брошенности всех веток репозитория:
+  ✅ живая · ⏳ без коммитов 14+ дней · 🪦 брошена 30+ дней. Клик открывает ветку на GitHub
+
+**Установка** — см. английский блок выше (это 6 шагов через режим разработчика).
+**Токен** (необязателен): 🔑 в панели → вставить ключ (без разрешений) → лимит 5000 запросов/час.
+
+## Roadmap
+
+- [ ] ▶ «Play the history» — timelapse animation of the graph growing
+- [ ] «N commits behind main» badges for branches (compare API)
+- [ ] Search & filters for the branches list
+- [ ] Auto light theme
+- [ ] Chrome Web Store publication
+
+## Development
+
+```bash
+# no build step — plain JS, edit and reload:
+# 1. extensions page → ⟳ on the GitGraph Live card
+# 2. refresh the GitHub tab
+```
+
+Thresholds live at the top of `content.js` (`STALE_DAYS = 30`, `WORN_DAYS = 14`).
+
+## License
+
+[MIT](LICENSE) — use it, fork it, ship it.
