@@ -286,6 +286,7 @@
             : Promise.resolve(null));
           const cmpRes = await Promise.allSettled(cmpRequests.map((req) => req.then((res) => (res === null ? null : fruited('compare', res)))));
           if (seq !== loadSeqId) return;
+          const pickDate = (c) => ({ author: (c.commit.author && c.commit.author.name) || '—', date: (c.commit.committer && c.commit.committer.date) || (c.commit.author && c.commit.author.date) });
           state.branches = sample.map((br, i) => {
             let date = null, author = '—', behind = null, ahead = null;
             const cmp = cmpRes[i];
@@ -293,11 +294,11 @@
               behind = 0; ahead = 0; date = repoInfo.pushed_at || null;
             } else if (cmp.status === 'fulfilled' && cmp.value) {
               behind = cmp.value.behind_by; ahead = cmp.value.ahead_by;
+              // head_commit иногда отсутствует в ответе → дата живёт в commits[0],
+              // это новейший коммит на стороне ветки (массив отсортирован от свежих).
               const head = cmp.value.head_commit;
-              if (head) {
-                author = (head.commit.author && head.commit.author.name) || '—';
-                date = (head.commit.committer && head.commit.committer.date) || (head.commit.author && head.commit.author.date);
-              }
+              const local = (head && head.commit) ? head : ((cmp.value.commits && cmp.value.commits.length) ? cmp.value.commits[0] : null);
+              if (local) { ({ author, date } = pickDate(local)); }
             } else {
               const inline = br.commit.commit && (br.commit.commit.committer || br.commit.commit.author); // GitHub внезапно вернул дату сразу
               if (inline) {
@@ -307,6 +308,19 @@
             }
             return { name: br.name, sha: String(br.commit.sha).slice(0, 7), author, date, behind, ahead };
           });
+          // Добор дат, которых compare не дал (осиротевшие/слитые ветки, сбой запроса):
+          // 1 запрос на такую ветку — обычный случай не дороже старой доборки по хешам.
+          const needDate = state.branches.map((b, i) => ({ b, i })).filter(({ b }) => !b.date).slice(0, limit);
+          if (needDate.length) {
+            const dateRes = await Promise.allSettled(needDate.map(({ b }) =>
+              timedFetch(`${base}/commits/${b.sha}`, { headers }).then((res) => fruited('branch_date', res))));
+            if (seq !== loadSeqId) return;
+            dateRes.forEach((d, j) => {
+              if (d.status !== 'fulfilled') return;
+              const fix = pickDate(d.value);
+              Object.assign(state.branches[needDate[j].i], fix);
+            });
+          }
           state.branchesTotal = raw.length;
           cacheSet('b2:' + ck, { branches: state.branches, total: state.branchesTotal });
         } else {
